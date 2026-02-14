@@ -8,6 +8,8 @@ A Progressive Web App displaying daily Thirukkural verses. Built with vanilla Ja
 
 **Files:** `index.html`, `app.js` (ThirukkuralApp class), `sw.js`, `styles.css`, `manifest.json`
 
+**Scope:** This is a web-based PWA only. Android widget implementation should be done in a separate native Android project.
+
 ## Development Commands
 
 ```bash
