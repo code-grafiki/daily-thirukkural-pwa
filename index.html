@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#764ba2">
+    <meta name="description" content="Daily Thirukkural - Ancient Tamil wisdom delivered daily">
+    <title>Daily Thirukkural</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Tamil:wght@400;600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">📖 Daily Thirukkural</div>
+            <div class="date" id="current-date"></div>
+        </header>
+
+        <!-- Main Widget -->
+        <main class="main-content">
+            <div class="kural-card" id="kural-card">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Loading today's wisdom...</p>
+                </div>
+                
+                <div class="kural-content" id="kural-content" style="display: none;">
+                    <div class="kural-header">
+                        <span class="kural-number" id="kural-number"></span>
+                        <span class="kural-chapter" id="kural-chapter"></span>
+                    </div>
+                    
+                    <div class="kural-tamil" id="kural-tamil">
+                        <p class="line1" id="line1"></p>
+                        <p class="line2" id="line2"></p>
+                    </div>
+                    
+                    <div class="kural-transliteration" id="kural-transliteration">
+                        <p class="trans1" id="trans1"></p>
+                        <p class="trans2" id="trans2"></p>
+                    </div>
+                    
+                    <div class="kural-translation" id="kural-translation">
+                        <p id="translation"></p>
+                    </div>
+                    
+                    <div class="kural-meaning" id="kural-meaning">
+                        <h3>Meaning</h3>
+                        <div class="meaning-tabs">
+                            <button class="tab-btn active" data-tab="mv">மு.வ</button>
+                            <button class="tab-btn" data-tab="sp">சா.பா</button>
+                            <button class="tab-btn" data-tab="mk">மு.க</button>
+                            <button class="tab-btn" data-tab="en">English</button>
+                        </div>
+                        <div class="meaning-content" id="meaning-content"></div>
+                    </div>
+                </div>
+                
+                <div class="error-message" id="error-message" style="display: none;">
+                    <p>⚠️ Failed to load Kural. Please check your connection.</p>
+                    <button onclick="location.reload()">Retry</button>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="navigation">
+                <button class="nav-btn" id="prev-btn" title="Previous Kural">
+                    <span>←</span> Previous
+                </button>
+                <button class="nav-btn primary" id="today-btn" title="Today's Kural">
+                    Today
+                </button>
+                <button class="nav-btn" id="next-btn" title="Next Kural">
+                    Next <span>→</span>
+                </button>
+            </div>
+            
+            <!-- Actions -->
+            <div class="actions">
+                <button class="action-btn" id="share-btn" title="Share">
+                    <span>🔗</span> Share
+                </button>
+                <button class="action-btn" id="copy-btn" title="Copy">
+                    <span>📋</span> Copy
+                </button>
+                <button class="action-btn" id="bookmark-btn" title="Bookmark">
+                    <span>🔖</span> Save
+                </button>
+            </div>
+        </main>
+
+        <!-- Bookmarks Section -->
+        <section class="bookmarks-section" id="bookmarks-section" style="display: none;">
+            <h2>📚 Saved Kurals</h2>
+            <div class="bookmarks-list" id="bookmarks-list"></div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Data from <a href="https://github.com/tk120404/thirukkural" target="_blank">tk120404/thirukkural</a></p>
+            <button class="install-btn" id="install-btn" style="display: none;">📲 Install App</button>
+        </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
