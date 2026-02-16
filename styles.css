@@ -493,4 +493,9 @@ body {
   .install-btn {
     background: #333333;
   }
+
+  .toast {
+    background: #333333;
+    color: #ffffff;
+  }
 }
