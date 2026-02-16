@@ -53,13 +53,39 @@ class ThirukkuralApp {
     this.detailData = detailJson[0];
   }
   
-  // Get today's kural number (1-1330)
+  // Get today's kural number (1-1330) - random shuffle without repeats
   getTodaysKuralNumber() {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 0);
-    const diff = now - startOfYear;
-    const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
-    return (dayOfYear % 1330) + 1;
+    const TOTAL_KURALS = 1330;
+    const STORAGE_KEY = 'thirukkural-daily-sequence';
+
+    let sequence = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    let today = new Date().toDateString();
+    let lastDate = localStorage.getItem('thirukkural-last-date');
+
+    // Initialize shuffled sequence if first run or all kurals shown
+    if (!sequence || sequence.index >= TOTAL_KURALS) {
+      sequence = {
+        order: this._shuffleArray([...Array(TOTAL_KURALS)].map((_, i) => i + 1)),
+        index: 0
+      };
+    }
+
+    // Advance index if it's a new day
+    if (today !== lastDate) {
+      sequence.index++;
+      localStorage.setItem('thirukkural-last-date', today);
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sequence));
+    return sequence.order[sequence.index % TOTAL_KURALS];
+  }
+
+  _shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
   }
   
   // Get chapter info for a kural number
@@ -136,7 +162,14 @@ class ThirukkuralApp {
     const todayNumber = this.getTodaysKuralNumber();
     this.showKural(todayNumber);
   }
-  
+
+  // Show random kural (Feeling Lucky)
+  showRandomKural() {
+    const randomNumber = Math.floor(Math.random() * 1330) + 1;
+    this.showKural(randomNumber);
+    this.showToast('🎲 Random Kural!');
+  }
+
   // Navigation
   goToPrevious() {
     if (this.currentKuralNumber > 1) {
@@ -349,6 +382,7 @@ class ThirukkuralApp {
     document.getElementById('today-btn').addEventListener('click', () => this.showTodaysKural());
     
     // Actions
+    document.getElementById('lucky-btn').addEventListener('click', () => this.showRandomKural());
     document.getElementById('share-btn').addEventListener('click', () => this.shareKural());
     document.getElementById('copy-btn').addEventListener('click', () => this.copyKural());
     document.getElementById('bookmark-btn').addEventListener('click', () => this.toggleBookmark());
