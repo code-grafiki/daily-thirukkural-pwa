@@ -1,5 +1,5 @@
 // Service Worker for Thirukkural PWA
-const CACHE_NAME = 'thirukkural-v1';
+const CACHE_NAME = 'thirukkural-v2';
 const urlsToCache = [
   '/',
   '/index.html',
