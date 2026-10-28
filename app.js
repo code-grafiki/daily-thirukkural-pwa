@@ -4,10 +4,21 @@ class ThirukkuralApp {
     this.kuralData = null;
     this.detailData = null;
     this.currentKuralNumber = null;
-    this.bookmarks = JSON.parse(localStorage.getItem('thirukkural-bookmarks') || '[]');
+    this.chapterInfoMap = null;
     this.currentTab = 'mv';
-    
+    this.bookmarks = this._loadBookmarks();
+
     this.init();
+  }
+
+  _loadBookmarks() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('thirukkural-bookmarks') || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('Could not read bookmarks:', e);
+      return [];
+    }
   }
   
   async init() {
@@ -45,12 +56,41 @@ class ThirukkuralApp {
       fetch('https://raw.githubusercontent.com/tk120404/thirukkural/master/thirukkural.json'),
       fetch('https://raw.githubusercontent.com/tk120404/thirukkural/master/detail.json')
     ]);
-    
+
+    if (!kuralResponse.ok || !detailResponse.ok) {
+      throw new Error('Failed to fetch kural data');
+    }
+
     const kuralJson = await kuralResponse.json();
     const detailJson = await detailResponse.json();
-    
+
     this.kuralData = kuralJson.kural;
     this.detailData = detailJson[0];
+    this._buildChapterMap();
+  }
+
+  _buildChapterMap() {
+    const map = new Map();
+    const sections = this.detailData && this.detailData.section && this.detailData.section.detail
+      ? this.detailData.section.detail
+      : [];
+    for (const section of sections) {
+      const groups = section.chapterGroup && section.chapterGroup.detail ? section.chapterGroup.detail : [];
+      for (const group of groups) {
+        const chapters = group.chapters && group.chapters.detail ? group.chapters.detail : [];
+        for (const chapter of chapters) {
+          for (let n = chapter.start; n <= chapter.end; n++) {
+            map.set(n, {
+              section: section.name,
+              group: group.name,
+              chapter: chapter.name,
+              chapterTrans: chapter.translation
+            });
+          }
+        }
+      }
+    }
+    this.chapterInfoMap = map;
   }
   
   // Get today's kural number (1-1330) - random shuffle without repeats
@@ -58,26 +98,54 @@ class ThirukkuralApp {
     const TOTAL_KURALS = 1330;
     const STORAGE_KEY = 'thirukkural-daily-sequence';
 
-    let sequence = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-    let today = new Date().toDateString();
-    let lastDate = localStorage.getItem('thirukkural-last-date');
+    let sequence = null;
+    let lastDate = null;
+    try {
+      sequence = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      lastDate = localStorage.getItem('thirukkural-last-date');
+    } catch (e) {
+      console.warn('Could not read daily sequence:', e);
+    }
 
-    // Initialize shuffled sequence if first run or all kurals shown
-    if (!sequence || sequence.index >= TOTAL_KURALS) {
+    const today = new Date().toDateString();
+
+    const valid = sequence &&
+      Array.isArray(sequence.order) &&
+      sequence.order.length === TOTAL_KURALS &&
+      typeof sequence.index === 'number' &&
+      sequence.index >= 0 &&
+      sequence.index < TOTAL_KURALS;
+
+    if (!valid) {
       sequence = {
         order: this._shuffleArray([...Array(TOTAL_KURALS)].map((_, i) => i + 1)),
         index: 0
       };
     }
 
-    // Advance index if it's a new day
-    if (today !== lastDate) {
+    // Advance only when a previous day exists (so the first visit shows the first item)
+    if (today !== lastDate && lastDate !== null) {
       sequence.index++;
-      localStorage.setItem('thirukkural-last-date', today);
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sequence));
-    return sequence.order[sequence.index % TOTAL_KURALS];
+    // Reshuffle before overflowing the array
+    if (sequence.index >= TOTAL_KURALS) {
+      sequence = {
+        order: this._shuffleArray([...Array(TOTAL_KURALS)].map((_, i) => i + 1)),
+        index: 0
+      };
+    }
+
+    try {
+      if (today !== lastDate) {
+        localStorage.setItem('thirukkural-last-date', today);
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sequence));
+    } catch (e) {
+      console.warn('Could not persist daily sequence:', e);
+    }
+
+    return sequence.order[sequence.index];
   }
 
   _shuffleArray(array) {
@@ -90,33 +158,18 @@ class ThirukkuralApp {
   
   // Get chapter info for a kural number
   getChapterInfo(kuralNumber) {
-    const sections = this.detailData.section.detail;
-    
-    for (const section of sections) {
-      const chapterGroups = section.chapterGroup.detail;
-      for (const group of chapterGroups) {
-        const chapters = group.chapters.detail;
-        for (const chapter of chapters) {
-          if (kuralNumber >= chapter.start && kuralNumber <= chapter.end) {
-            return {
-              section: section.name,
-              group: group.name,
-              chapter: chapter.name,
-              chapterTrans: chapter.translation
-            };
-          }
-        }
-      }
-    }
-    return null;
+    if (!this.chapterInfoMap) return null;
+    return this.chapterInfoMap.get(kuralNumber) || null;
   }
   
   // Show a specific kural
   showKural(number) {
     if (!this.kuralData || number < 1 || number > 1330) return;
-    
-    this.currentKuralNumber = number;
+
     const kural = this.kuralData[number - 1];
+    if (!kural) return;
+
+    this.currentKuralNumber = number;
     const chapterInfo = this.getChapterInfo(number);
     
     // Hide loading, show content
@@ -216,7 +269,11 @@ class ThirukkuralApp {
       this.showToast('Bookmark removed');
     }
     
-    localStorage.setItem('thirukkural-bookmarks', JSON.stringify(this.bookmarks));
+    try {
+      localStorage.setItem('thirukkural-bookmarks', JSON.stringify(this.bookmarks));
+    } catch (e) {
+      console.warn('Could not save bookmark:', e);
+    }
     this.updateBookmarkButton();
     this.renderBookmarks();
   }
@@ -231,44 +288,60 @@ class ThirukkuralApp {
   renderBookmarks() {
     const container = document.getElementById('bookmarks-list');
     const section = document.getElementById('bookmarks-section');
-    
+
     if (this.bookmarks.length === 0) {
       section.style.display = 'none';
+      container.replaceChildren();
       return;
     }
-    
+
     section.style.display = 'block';
-    container.innerHTML = this.bookmarks.map(num => {
-      const kural = this.kuralData[num - 1];
-      return `
-        <div class="bookmark-item" data-number="${num}">
-          <div class="kural-preview">
-            <strong>#${num}</strong> ${kural.Line1.substring(0, 30)}...
-          </div>
-          <button class="delete-btn" data-number="${num}">🗑️</button>
-        </div>
-      `;
-    }).join('');
-    
-    // Add click handlers
+    container.replaceChildren();
+
+    this.bookmarks.forEach(num => {
+      const kural = this.kuralData && this.kuralData[num - 1];
+      const item = document.createElement('div');
+      item.className = 'bookmark-item';
+      item.dataset.number = String(num);
+
+      const preview = document.createElement('div');
+      preview.className = 'kural-preview';
+      const strong = document.createElement('strong');
+      strong.textContent = `#${num}`;
+      preview.appendChild(strong);
+      preview.appendChild(document.createTextNode(` ${(kural && kural.Line1 ? kural.Line1.substring(0, 30) : '')}...`));
+
+      const del = document.createElement('button');
+      del.className = 'delete-btn';
+      del.dataset.number = String(num);
+      del.textContent = '🗑️';
+
+      item.appendChild(preview);
+      item.appendChild(del);
+      container.appendChild(item);
+    });
+
     container.querySelectorAll('.bookmark-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('delete-btn')) {
-          const num = parseInt(item.dataset.number);
-          this.showKural(num);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        if (e.target.classList.contains('delete-btn')) return;
+        const num = parseInt(item.dataset.number, 10);
+        this.showKural(num);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       });
     });
-    
+
     container.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const num = parseInt(btn.dataset.number);
+        const num = parseInt(btn.dataset.number, 10);
         const index = this.bookmarks.indexOf(num);
         if (index > -1) {
           this.bookmarks.splice(index, 1);
-          localStorage.setItem('thirukkural-bookmarks', JSON.stringify(this.bookmarks));
+          try {
+            localStorage.setItem('thirukkural-bookmarks', JSON.stringify(this.bookmarks));
+          } catch (err) {
+            console.warn('Could not save bookmarks:', err);
+          }
           this.renderBookmarks();
           this.updateBookmarkButton();
         }
@@ -297,9 +370,11 @@ class ThirukkuralApp {
   
   // Copy to clipboard
   copyToClipboard(text) {
-    if (navigator.clipboard) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
         this.showToast('Copied to clipboard! 📋');
+      }).catch(() => {
+        this.showToast('Copy failed');
       });
     } else {
       // Fallback
@@ -307,9 +382,13 @@ class ThirukkuralApp {
       textarea.value = text;
       document.body.appendChild(textarea);
       textarea.select();
-      document.execCommand('copy');
+      try {
+        document.execCommand('copy');
+        this.showToast('Copied to clipboard! 📋');
+      } catch (e) {
+        this.showToast('Copy failed');
+      }
       document.body.removeChild(textarea);
-      this.showToast('Copied to clipboard! 📋');
     }
   }
   
@@ -347,29 +426,31 @@ class ThirukkuralApp {
   
   // Check if app is installable
   checkInstallable() {
-    let deferredPrompt;
-    
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('install-btn');
+
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      document.getElementById('install-btn').style.display = 'inline-block';
-      
-      document.getElementById('install-btn').addEventListener('click', async () => {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        
-        if (outcome === 'accepted') {
-          this.showToast('App installed! 📲');
-          document.getElementById('install-btn').style.display = 'none';
-        }
-        
-        deferredPrompt = null;
-      });
+      installBtn.style.display = 'inline-block';
     });
-    
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+
+      if (outcome === 'accepted') {
+        this.showToast('App installed! 📲');
+        installBtn.style.display = 'none';
+      }
+
+      deferredPrompt = null;
+    });
+
     window.addEventListener('appinstalled', () => {
       this.showToast('Thanks for installing! 🎉');
-      document.getElementById('install-btn').style.display = 'none';
+      installBtn.style.display = 'none';
       deferredPrompt = null;
     });
   }

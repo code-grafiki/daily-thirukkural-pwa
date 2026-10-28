@@ -4,7 +4,7 @@ A beautiful Progressive Web App that delivers daily Thirukkural wisdom to your d
 
 ## ✨ Features
 
-- 📅 **Daily Kural** - Automatically shows today's Kural based on the day of the year (cycles through all 1330 Kurals)
+- 📅 **Daily Kural** - Shows one Kural per day, cycling through all 1330 without repeats
 - 🎨 **Beautiful UI** - Modern gradient design with Tamil font support
 - 📱 **PWA Support** - Install as an app on Android/iOS
 - 💾 **Offline Support** - Works without internet after first load
